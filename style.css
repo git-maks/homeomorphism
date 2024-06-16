@@ -1,0 +1,17 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#graph1-container, #graph2-container, #modify-graph2-container {
+    margin: 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+}
+
+h1, h2 {
+    color: #333;
+}

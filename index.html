@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Homeomorphism Checker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Graph Homeomorphism Checker</h1>
+    <div id="graph1-container">
+        <h2>Create Graph 1</h2>
+        <button onclick="createGraph(1)">Create Graph 1</button>
+        <div id="graph1"></div>
+    </div>
+    <div id="graph2-container">
+        <h2>Create Graph 2</h2>
+        <button onclick="createGraph(2)">Create Graph 2</button>
+        <div id="graph2"></div>
+    </div>
+    <div id="modify-graph2-container" style="display:none;">
+        <h2>Modify Graph 2</h2>
+        <button onclick="addVertex()">Add Vertex</button>
+        <button onclick="removeVertex()">Remove Vertex</button>
+        <button onclick="checkHomeomorphism()">Check Homeomorphism</button>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
