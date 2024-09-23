@@ -4,26 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graph Homeomorphism Checker</title>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.23.0/cytoscape.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <h1>Graph Homeomorphism Checker</h1>
-    <div id="graph1-container">
-        <h2>Create Graph 1</h2>
-        <button id="create-graph1-btn">Create Graph 1</button>
-        <div id="graph1"></div>
+    <div class="instructions">
+        <p>Left-click to add a node</p>
+        <p>Right-click on a node to remove it</p>
+        <p>Click and drag from one node to another to create an edge</p>
     </div>
-    <div id="graph2-container">
-        <h2>Create Graph 2</h2>
-        <button id="create-graph2-btn">Create Graph 2</button>
-        <div id="graph2"></div>
+    <div class="graph-containers">
+        <div id="cy1" class="cytoscape-graph"></div>
+        <div id="cy2" class="cytoscape-graph"></div>
     </div>
-    <div id="modify-graph2-container" style="display:none;">
-        <h2>Modify Graph 2</h2>
-        <button id="add-vertex-btn">Add Vertex</button>
-        <button id="remove-vertex-btn">Remove Vertex</button>
-        <button id="check-homeomorphism-btn">Check Homeomorphism</button>
-    </div>
+    <button id="check-homeomorphism">Check Homeomorphism</button>
+    <div id="result"></div>
     <script src="script.js"></script>
 </body>
 </html>
