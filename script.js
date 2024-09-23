@@ -1,69 +1,88 @@
-let graph1 = [];
-let graph2 = [];
-let graph2Vertices = 0;
+document.addEventListener('DOMContentLoaded', function() {
+    const cy1 = createCytoscape('cy1');
+    const cy2 = createCytoscape('cy2');
 
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('create-graph1-btn').addEventListener('click', () => createGraph(1));
-    document.getElementById('create-graph2-btn').addEventListener('click', () => createGraph(2));
-    document.getElementById('add-vertex-btn').addEventListener('click', addVertex);
-    document.getElementById('remove-vertex-btn').addEventListener('click', removeVertex);
-    document.getElementById('check-homeomorphism-btn').addEventListener('click', checkHomeomorphism);
+    document.getElementById('check-homeomorphism').addEventListener('click', function() {
+        const result = checkHomeomorphism(cy1, cy2);
+        document.getElementById('result').textContent = result ? 
+            "The graphs are homeomorphic!" : 
+            "The graphs are not homeomorphic.";
+    });
 });
 
-function createGraph(graphNumber) {
-    let graph = prompt(`Enter the adjacency list for Graph ${graphNumber} (e.g., "0-1,0-2,1-2")`);
-    if (graph) {
-        if (graphNumber === 1) {
-            graph1 = parseGraph(graph);
-            document.getElementById('graph1').innerText = `Graph 1: ${JSON.stringify(graph1)}`;
-        } else {
-            graph2 = parseGraph(graph);
-            graph2Vertices = new Set(graph2.flat()).size;
-            document.getElementById('graph2').innerText = `Graph 2: ${JSON.stringify(graph2)}`;
-            document.getElementById('modify-graph2-container').style.display = 'block';
+function createCytoscape(containerId) {
+    return cytoscape({
+        container: document.getElementById(containerId),
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'background-color': '#666',
+                    'label': 'data(id)'
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 3,
+                    'line-color': '#ccc',
+                    'target-arrow-color': '#ccc',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier'
+                }
+            }
+        ],
+        layout: {
+            name: 'grid',
+            rows: 1
         }
-    }
+    });
 }
 
-function parseGraph(graphString) {
-    return graphString.split(',').map(edge => edge.split('-').map(Number));
-}
+function setupCytoscapeInteractions(cy) {
+    let nodeId = 0;
+    let sourceNode = null;
 
-function addVertex() {
-    let edge = prompt("Enter the new edge to add (e.g., '2-3')");
-    if (edge) {
-        let [v1, v2] = edge.split('-').map(Number);
-        if (degree(v1) !== 2 && degree(v2) !== 2) {
-            graph2.push([v1, v2]);
-            graph2Vertices = new Set(graph2.flat()).size;
-            document.getElementById('graph2').innerText = `Graph 2: ${JSON.stringify(graph2)}`;
-        } else {
-            alert("Vertices must have a degree of 2 to add.");
+    cy.on('tap', function(event) {
+        if (event.target === cy) {
+            const position = event.position;
+            cy.add({
+                group: 'nodes',
+                data: { id: 'n' + nodeId++ },
+                position: position
+            });
         }
-    }
+    });
+
+    cy.on('cxttap', 'node', function(event) {
+        cy.remove(event.target);
+    });
+
+    cy.on('mousedown', 'node', function(event) {
+        sourceNode = event.target;
+    });
+
+    cy.on('mouseup', 'node', function(event) {
+        if (sourceNode && sourceNode !== event.target) {
+            cy.add({
+                group: 'edges',
+                data: {
+                    id: 'e' + sourceNode.id() + '-' + event.target.id(),
+                    source: sourceNode.id(),
+                    target: event.target.id()
+                }
+            });
+        }
+        sourceNode = null;
+    });
 }
 
-function removeVertex() {
-    let vertex = Number(prompt("Enter the vertex to remove"));
-    if (degree(vertex) === 2) {
-        graph2 = graph2.filter(edge => !edge.includes(vertex));
-        graph2Vertices = new Set(graph2.flat()).size;
-        document.getElementById('graph2').innerText = `Graph 2: ${JSON.stringify(graph2)}`;
-    } else {
-        alert("Only vertices with a degree of 2 can be removed.");
-    }
+function checkHomeomorphism(cy1, cy2) {
+    // This is a simplified check that only compares the number of nodes and edges
+    // A real homeomorphism check would be much more complex
+    return cy1.nodes().length === cy2.nodes().length && 
+           cy1.edges().length === cy2.edges().length;
 }
 
-function degree(vertex) {
-    return graph2.filter(edge => edge.includes(vertex)).length;
-}
-
-function checkHomeomorphism() {
-    if (graph1.length !== graph2.length || graph2Vertices !== new Set(graph1.flat()).size) {
-        alert("Graphs are not homeomorphic.");
-        return;
-    }
-    document.getElementById('graph1-container').style.backgroundColor = 'lightgreen';
-    document.getElementById('graph2-container').style.backgroundColor = 'lightgreen';
-    alert("Graphs are homeomorphic!");
-}
+setupCytoscapeInteractions(cy1);
+setupCytoscapeInteractions(cy2);
