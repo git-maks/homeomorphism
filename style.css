@@ -3,15 +3,38 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    padding: 20px;
 }
 
-#graph1-container, #graph2-container, #modify-graph2-container {
-    margin: 20px;
-    padding: 20px;
+h1 {
+    margin-bottom: 20px;
+}
+
+.instructions {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.graph-containers {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.cytoscape-graph {
+    width: 45%;
+    height: 400px;
     border: 1px solid #ccc;
 }
 
-h1, h2 {
-    color: #333;
+#check-homeomorphism {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+#result {
+    margin-top: 20px;
+    font-weight: bold;
 }
