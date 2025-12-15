@@ -6,6 +6,8 @@ let history1 = [];
 let history2 = [];
 let historyIndex1 = -1;
 let historyIndex2 = -1;
+let selectedSourceNode = null;
+let selectedSourceGraph = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeTheme();
@@ -146,13 +148,17 @@ function createCytoscape(containerId, nodeColor) {
 }
 
 function setupCytoscapeInteractions(cy, getNodeId) {
-    let sourceNode = null;
     const graphNum = cy.container().id === 'cy1' ? 1 : 2;
 
+    // tap empty space to add node or clear selection
     cy.on('tap', function(event) {
         if (event.target === cy) {
+            // clear selection
+            clearSelection();
+            
+            // add node
             const position = event.position;
-            const nodeId = 'n' + getNodeId();
+            const nodeId = 'n' + getNextNodeId(cy);
             const node = cy.add({
                 group: 'nodes',
                 data: { id: nodeId },
@@ -162,13 +168,66 @@ function setupCytoscapeInteractions(cy, getNodeId) {
         }
     });
 
+    // tap node for selection/edge creation
+    cy.on('tap', 'node', function(event) {
+        const clickedNode = event.target;
+        
+        if (selectedSourceNode === null) {
+            // no source selected - select this node
+            selectedSourceNode = clickedNode;
+            selectedSourceGraph = graphNum;
+            clickedNode.addClass('selected-source');
+        } else if (selectedSourceNode === clickedNode) {
+            // clicked same node - deselect
+            clearSelection();
+        } else if (selectedSourceGraph !== graphNum) {
+            // different graph - clear selection
+            clearSelection();
+        } else {
+            // create edge from source to target
+            const sourceId = selectedSourceNode.id();
+            const targetId = clickedNode.id();
+            const edgeId = 'e' + sourceId + '-' + targetId;
+            const reverseEdgeId = 'e' + targetId + '-' + sourceId;
+            
+            const existingEdge = cy.edges(`[id = "${edgeId}"]`);
+            const existingReverseEdge = cy.edges(`[id = "${reverseEdgeId}"]`);
+            
+            if (existingEdge.length === 0 && existingReverseEdge.length === 0) {
+                cy.add({
+                    group: 'edges',
+                    data: {
+                        id: edgeId,
+                        source: sourceId,
+                        target: targetId
+                    }
+                });
+                saveHistory(graphNum, 'add-edge', {
+                    id: edgeId,
+                    source: sourceId,
+                    target: targetId
+                });
+            }
+            
+            clearSelection();
+        }
+    });
+
+    // right-click to remove node
     cy.on('cxttap', 'node', function(event) {
         const node = event.target;
+        
+        // clear selection if deleting selected node
+        if (selectedSourceNode && selectedSourceNode.id() === node.id()) {
+            clearSelection();
+        }
+        
         const nodeData = {
             id: node.id(),
             position: node.position(),
             edges: []
         };
+        
         // save connected edges
         node.connectedEdges().forEach(edge => {
             nodeData.edges.push({
@@ -177,39 +236,109 @@ function setupCytoscapeInteractions(cy, getNodeId) {
                 target: edge.target().id()
             });
         });
+        
         saveHistory(graphNum, 'remove-node', nodeData);
         cy.remove(event.target);
+        
+        // renumber nodes
+        renumberNodes(cy, graphNum);
     });
+}
 
-    cy.on('mousedown', 'node', function(event) {
-        sourceNode = event.target;
+function clearSelection() {
+    if (selectedSourceNode) {
+        selectedSourceNode.removeClass('selected-source');
+        selectedSourceNode = null;
+        selectedSourceGraph = null;
+    }
+}
+
+function getNextNodeId(cy) {
+    const nodes = cy.nodes();
+    if (nodes.length === 0) return 0;
+    
+    const usedIds = new Set();
+    nodes.forEach(node => {
+        const idNum = parseInt(node.id().substring(1));
+        usedIds.add(idNum);
     });
+    
+    // find smallest available id
+    let nextId = 0;
+    while (usedIds.has(nextId)) {
+        nextId++;
+    }
+    
+    return nextId;
+}
 
-    cy.on('mouseup', 'node', function(event) {
-        if (sourceNode && sourceNode !== event.target) {
-            const edgeId = 'e' + sourceNode.id() + '-' + event.target.id();
-            const existingEdge = cy.edges(`[id = "${edgeId}"]`);
-            const reverseEdgeId = 'e' + event.target.id() + '-' + sourceNode.id();
-            const existingReverseEdge = cy.edges(`[id = "${reverseEdgeId}"]`);
-            
-            if (existingEdge.length === 0 && existingReverseEdge.length === 0) {
-                cy.add({
-                    group: 'edges',
-                    data: {
-                        id: edgeId,
-                        source: sourceNode.id(),
-                        target: event.target.id()
-                    }
-                });
-                saveHistory(graphNum, 'add-edge', {
-                    id: edgeId,
-                    source: sourceNode.id(),
-                    target: event.target.id()
-                });
+function renumberNodes(cy, graphNum) {
+    const nodes = cy.nodes();
+    if (nodes.length === 0) return;
+    
+    // collect nodes with numeric ids
+    const nodeData = [];
+    nodes.forEach(node => {
+        const idNum = parseInt(node.id().substring(1));
+        nodeData.push({
+            node: node,
+            oldId: node.id(),
+            numericId: idNum,
+            position: node.position()
+        });
+    });
+    
+    // sort by numeric id
+    nodeData.sort((a, b) => a.numericId - b.numericId);
+    
+    // create mapping for renumbering
+    const idMapping = {};
+    nodeData.forEach((data, index) => {
+        const newId = 'n' + index;
+        idMapping[data.oldId] = newId;
+    });
+    
+    // collect edge data
+    const edgeData = [];
+    cy.edges().forEach(edge => {
+        edgeData.push({
+            source: edge.source().id(),
+            target: edge.target().id()
+        });
+    });
+    
+    // remove all elements
+    cy.elements().remove();
+    
+    // re-add nodes with new ids
+    nodeData.forEach((data, index) => {
+        cy.add({
+            group: 'nodes',
+            data: { id: 'n' + index },
+            position: data.position
+        });
+    });
+    
+    // re-add edges with updated references
+    edgeData.forEach(edge => {
+        const newSource = idMapping[edge.source];
+        const newTarget = idMapping[edge.target];
+        cy.add({
+            group: 'edges',
+            data: {
+                id: 'e' + newSource + '-' + newTarget,
+                source: newSource,
+                target: newTarget
             }
-        }
-        sourceNode = null;
+        });
     });
+    
+    // update counter
+    if (graphNum === 1) {
+        nodeIdCounter1 = nodes.length;
+    } else {
+        nodeIdCounter2 = nodes.length;
+    }
 }
 
 function showResult(message, type) {
@@ -535,6 +664,9 @@ const EXAMPLE_GRAPHS = {
 function loadExample(exampleKey) {
     const example = EXAMPLE_GRAPHS[exampleKey];
     if (!example) return;
+    
+    // complete reset
+    clearSelection();
     
     cy1.elements().remove();
     cy2.elements().remove();

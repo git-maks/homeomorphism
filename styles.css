@@ -557,6 +557,13 @@ body.dark-theme .about-btn:hover {
     transition: background 0.3s ease;
 }
 
+/* cytoscape node selection */
+.selected-source {
+    border-width: 4px !important;
+    border-color: #F39C12 !important;
+    background-color: #FDB863 !important;
+}
+
 /* responsive */
 @media (max-width: 1024px) {
     .graph-containers {
