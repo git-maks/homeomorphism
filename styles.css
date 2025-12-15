@@ -141,6 +141,38 @@ h1 {
     margin-bottom: 15px;
 }
 
+.graph-header-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.graph-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.control-btn {
+    background: var(--pill-bg);
+    border: 1px solid var(--dropdown-border);
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    color: var(--primary-text);
+}
+
+.control-btn:hover:not(:disabled) {
+    background: var(--graph-border-hover);
+    transform: translateY(-1px);
+}
+
+.control-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
 .graph-label {
     font-size: 1.2rem;
     font-weight: 600;
@@ -525,7 +557,7 @@ body.dark-theme .about-btn:hover {
     transition: background 0.3s ease;
 }
 
-/* Responsive Design */
+/* responsive */
 @media (max-width: 1024px) {
     .graph-containers {
         flex-direction: column;
@@ -539,6 +571,10 @@ body.dark-theme .about-btn:hover {
         flex-direction: column;
         gap: 10px;
         text-align: center;
+    }
+    
+    .graph-header-group {
+        justify-content: center;
     }
 }
 

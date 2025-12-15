@@ -1,10 +1,13 @@
-// Global variables
+// globals
 let cy1, cy2;
 let nodeIdCounter1 = 0;
 let nodeIdCounter2 = 0;
+let history1 = [];
+let history2 = [];
+let historyIndex1 = -1;
+let historyIndex2 = -1;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize theme from localStorage
     initializeTheme();
     
     cy1 = createCytoscape('cy1', getNodeColorA());
@@ -13,23 +16,33 @@ document.addEventListener('DOMContentLoaded', function() {
     setupCytoscapeInteractions(cy1, () => nodeIdCounter1++);
     setupCytoscapeInteractions(cy2, () => nodeIdCounter2++);
     
-    // Theme toggle event listener
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
     
-    // About modal event listeners
-    document.getElementById('about-btn').addEventListener('click', openAboutModal);
-    document.querySelector('.modal-close').addEventListener('click', closeAboutModal);
-    document.getElementById('about-modal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeAboutModal();
+    // undo/redo
+    document.getElementById('undo-btn').addEventListener('click', () => undo(1));
+    document.getElementById('redo-btn').addEventListener('click', () => redo(1));
+    document.getElementById('undo-btn2').addEventListener('click', () => undo(2));
+    document.getElementById('redo-btn2').addEventListener('click', () => redo(2));
+    
+    // keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo(1);
+        } else if (e.ctrlKey && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            redo(1);
         }
     });
     
-    // Escape key to close modal
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeAboutModal();
-        }
+    // export buttons
+    document.getElementById('export-json-a').addEventListener('click', () => exportGraphJSON(cy1, 'graph-a'));
+    document.getElementById('export-json-b').addEventListener('click', () => exportGraphJSON(cy2, 'graph-b'));
+    document.getElementById('export-image').addEventListener('click', exportGraphsImage);
+    document.getElementById('about-btn').addEventListener('click', openAboutModal);
+    document.querySelector('.modal-close').addEventListener('click', closeAboutModal);
+    document.getElementById('about-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeAboutModal();
     });
     
     document.getElementById('check-homeomorphism').addEventListener('click', function() {
@@ -134,20 +147,37 @@ function createCytoscape(containerId, nodeColor) {
 
 function setupCytoscapeInteractions(cy, getNodeId) {
     let sourceNode = null;
+    const graphNum = cy.container().id === 'cy1' ? 1 : 2;
 
     cy.on('tap', function(event) {
         if (event.target === cy) {
             const position = event.position;
             const nodeId = 'n' + getNodeId();
-            cy.add({
+            const node = cy.add({
                 group: 'nodes',
                 data: { id: nodeId },
                 position: position
             });
+            saveHistory(graphNum, 'add-node', { id: nodeId, position: position });
         }
     });
 
     cy.on('cxttap', 'node', function(event) {
+        const node = event.target;
+        const nodeData = {
+            id: node.id(),
+            position: node.position(),
+            edges: []
+        };
+        // save connected edges
+        node.connectedEdges().forEach(edge => {
+            nodeData.edges.push({
+                id: edge.id(),
+                source: edge.source().id(),
+                target: edge.target().id()
+            });
+        });
+        saveHistory(graphNum, 'remove-node', nodeData);
         cy.remove(event.target);
     });
 
@@ -158,7 +188,6 @@ function setupCytoscapeInteractions(cy, getNodeId) {
     cy.on('mouseup', 'node', function(event) {
         if (sourceNode && sourceNode !== event.target) {
             const edgeId = 'e' + sourceNode.id() + '-' + event.target.id();
-            // Check if edge already exists
             const existingEdge = cy.edges(`[id = "${edgeId}"]`);
             const reverseEdgeId = 'e' + event.target.id() + '-' + sourceNode.id();
             const existingReverseEdge = cy.edges(`[id = "${reverseEdgeId}"]`);
@@ -172,6 +201,11 @@ function setupCytoscapeInteractions(cy, getNodeId) {
                         target: event.target.id()
                     }
                 });
+                saveHistory(graphNum, 'add-edge', {
+                    id: edgeId,
+                    source: sourceNode.id(),
+                    target: event.target.id()
+                });
             }
         }
         sourceNode = null;
@@ -184,33 +218,22 @@ function showResult(message, type) {
     resultDiv.className = type;
 }
 
-// ============================================
-// HOMEOMORPHISM DETECTION ALGORITHM
-// ============================================
-
+// homeomorphism check
 function checkHomeomorphism(cy1, cy2) {
-    // Two graphs are homeomorphic if they can be obtained from the same graph
-    // by subdividing edges (inserting degree-2 nodes)
-    
-    // Step 1: Simplify both graphs by removing degree-2 nodes
+    // remove degree-2 nodes then check if isomorphic
     const simplified1 = simplifyGraph(cy1);
     const simplified2 = simplifyGraph(cy2);
-    
-    // Step 2: Check if the simplified graphs are isomorphic
     return areGraphsIsomorphic(simplified1, simplified2);
 }
 
 function simplifyGraph(cy) {
-    // Build adjacency list representation
     const adjList = {};
     const nodes = cy.nodes();
     
-    // Initialize adjacency list
     nodes.forEach(node => {
         adjList[node.id()] = [];
     });
     
-    // Fill adjacency list (treat as undirected)
     cy.edges().forEach(edge => {
         const source = edge.source().id();
         const target = edge.target().id();
@@ -218,29 +241,25 @@ function simplifyGraph(cy) {
         adjList[target].push(source);
     });
     
-    // Remove degree-2 nodes iteratively
+    // remove degree-2 nodes
     let changed = true;
     while (changed) {
         changed = false;
         for (let node in adjList) {
             if (adjList[node].length === 2) {
-                // This is a degree-2 node, remove it and connect its neighbors
                 const [neighbor1, neighbor2] = adjList[node];
                 
-                // Remove this node from its neighbors' lists
                 adjList[neighbor1] = adjList[neighbor1].filter(n => n !== node);
                 adjList[neighbor2] = adjList[neighbor2].filter(n => n !== node);
                 
-                // Connect the two neighbors if not already connected
                 if (!adjList[neighbor1].includes(neighbor2)) {
                     adjList[neighbor1].push(neighbor2);
                     adjList[neighbor2].push(neighbor1);
                 }
                 
-                // Remove the degree-2 node
                 delete adjList[node];
                 changed = true;
-                break; // Restart the loop
+                break;
             }
         }
     }
@@ -252,26 +271,21 @@ function areGraphsIsomorphic(adjList1, adjList2) {
     const nodes1 = Object.keys(adjList1);
     const nodes2 = Object.keys(adjList2);
     
-    // Quick rejection tests
     if (nodes1.length !== nodes2.length) return false;
-    if (nodes1.length === 0) return true; // Both empty
+    if (nodes1.length === 0) return true;
     
-    // Count edges
     const edges1 = Object.values(adjList1).reduce((sum, neighbors) => sum + neighbors.length, 0) / 2;
     const edges2 = Object.values(adjList2).reduce((sum, neighbors) => sum + neighbors.length, 0) / 2;
     if (edges1 !== edges2) return false;
     
-    // Compare degree sequences
     const degSeq1 = getDegreeSequence(adjList1);
     const degSeq2 = getDegreeSequence(adjList2);
     if (!arraysEqual(degSeq1, degSeq2)) return false;
     
-    // For small graphs, try to find an isomorphism using backtracking
     if (nodes1.length <= 10) {
         return findIsomorphism(adjList1, adjList2);
     }
     
-    // For larger graphs, the degree sequence match is a good heuristic
     return true;
 }
 
@@ -296,9 +310,7 @@ function findIsomorphism(adjList1, adjList2) {
     const used = new Set();
     
     function backtrack(index) {
-        if (index === nodes1.length) {
-            return true; // Found a valid mapping
-        }
+        if (index === nodes1.length) return true;
         
         const node1 = nodes1[index];
         const degree1 = adjList1[node1].length;
@@ -307,11 +319,9 @@ function findIsomorphism(adjList1, adjList2) {
             if (used.has(node2)) continue;
             if (adjList2[node2].length !== degree1) continue;
             
-            // Try mapping node1 to node2
             mapping[node1] = node2;
             used.add(node2);
             
-            // Check if this mapping preserves adjacencies
             let valid = true;
             for (let neighbor1 of adjList1[node1]) {
                 if (mapping[neighbor1]) {
@@ -323,11 +333,8 @@ function findIsomorphism(adjList1, adjList2) {
                 }
             }
             
-            if (valid && backtrack(index + 1)) {
-                return true;
-            }
+            if (valid && backtrack(index + 1)) return true;
             
-            // Backtrack
             delete mapping[node1];
             used.delete(node2);
         }
@@ -338,16 +345,10 @@ function findIsomorphism(adjList1, adjList2) {
     return backtrack(0);
 }
 
-// ============================================
-// ISOMORPHISM DETECTION ALGORITHM
-// ============================================
-
+// isomorphism check
 function checkIsomorphism(cy1, cy2) {
-    // Build adjacency lists for both graphs
     const adjList1 = buildAdjacencyList(cy1);
     const adjList2 = buildAdjacencyList(cy2);
-    
-    // Check if graphs are isomorphic
     return areGraphsIsomorphic(adjList1, adjList2);
 }
 
@@ -355,12 +356,10 @@ function buildAdjacencyList(cy) {
     const adjList = {};
     const nodes = cy.nodes();
     
-    // Initialize adjacency list
     nodes.forEach(node => {
         adjList[node.id()] = [];
     });
     
-    // Fill adjacency list (treat as undirected)
     cy.edges().forEach(edge => {
         const source = edge.source().id();
         const target = edge.target().id();
@@ -371,9 +370,7 @@ function buildAdjacencyList(cy) {
     return adjList;
 }
 
-// ============================================
-// EXAMPLE GRAPHS SYSTEM
-// ============================================
+// examples
 
 const EXAMPLE_GRAPHS = {
     triangle: {
@@ -539,15 +536,20 @@ function loadExample(exampleKey) {
     const example = EXAMPLE_GRAPHS[exampleKey];
     if (!example) return;
     
-    // Clear both graphs
     cy1.elements().remove();
     cy2.elements().remove();
     
-    // Reset node counters
     nodeIdCounter1 = 0;
     nodeIdCounter2 = 0;
     
-    // Load Graph A
+    // clear history
+    history1 = [];
+    history2 = [];
+    historyIndex1 = -1;
+    historyIndex2 = -1;
+    updateUndoRedoButtons();
+    
+    // load graph a
     example.graphA.nodes.forEach(node => {
         cy1.add({
             group: 'nodes',
@@ -566,7 +568,7 @@ function loadExample(exampleKey) {
         });
     });
     
-    // Load Graph B
+    // load graph b
     example.graphB.nodes.forEach(node => {
         cy2.add({
             group: 'nodes',
@@ -585,7 +587,6 @@ function loadExample(exampleKey) {
         });
     });
     
-    // Update node counters based on loaded nodes
     const maxId1 = Math.max(...example.graphA.nodes.map(n => parseInt(n.id.substring(1))));
     const maxId2 = Math.max(...example.graphB.nodes.map(n => parseInt(n.id.substring(1))));
     nodeIdCounter1 = maxId1 + 1;
@@ -594,9 +595,188 @@ function loadExample(exampleKey) {
     showResult(`Loaded: ${example.name}`, "info");
 }
 
-// ============================================
-// THEME MANAGEMENT
-// ============================================
+// undo/redo
+function saveHistory(graphNum, action, data) {
+    const history = graphNum === 1 ? history1 : history2;
+    const index = graphNum === 1 ? historyIndex1 : historyIndex2;
+    
+    // remove future history if we're not at the end
+    history.splice(index + 1);
+    
+    history.push({ action, data });
+    
+    if (graphNum === 1) {
+        historyIndex1 = history1.length - 1;
+    } else {
+        historyIndex2 = history2.length - 1;
+    }
+    
+    // limit history size
+    if (history.length > 50) {
+        history.shift();
+        if (graphNum === 1) historyIndex1--;
+        else historyIndex2--;
+    }
+    
+    updateUndoRedoButtons();
+}
+
+function undo(graphNum) {
+    const cy = graphNum === 1 ? cy1 : cy2;
+    const history = graphNum === 1 ? history1 : history2;
+    let index = graphNum === 1 ? historyIndex1 : historyIndex2;
+    
+    if (index < 0) return;
+    
+    const entry = history[index];
+    
+    if (entry.action === 'add-node') {
+        cy.remove(`#${entry.data.id}`);
+    } else if (entry.action === 'remove-node') {
+        cy.add({
+            group: 'nodes',
+            data: { id: entry.data.id },
+            position: entry.data.position
+        });
+        entry.data.edges.forEach(edge => {
+            cy.add({
+                group: 'edges',
+                data: {
+                    id: edge.id,
+                    source: edge.source,
+                    target: edge.target
+                }
+            });
+        });
+    } else if (entry.action === 'add-edge') {
+        cy.remove(`#${entry.data.id}`);
+    }
+    
+    if (graphNum === 1) historyIndex1--;
+    else historyIndex2--;
+    
+    updateUndoRedoButtons();
+}
+
+function redo(graphNum) {
+    const cy = graphNum === 1 ? cy1 : cy2;
+    const history = graphNum === 1 ? history1 : history2;
+    let index = graphNum === 1 ? historyIndex1 : historyIndex2;
+    
+    if (index >= history.length - 1) return;
+    
+    const entry = history[index + 1];
+    
+    if (entry.action === 'add-node') {
+        cy.add({
+            group: 'nodes',
+            data: { id: entry.data.id },
+            position: entry.data.position
+        });
+    } else if (entry.action === 'remove-node') {
+        cy.remove(`#${entry.data.id}`);
+    } else if (entry.action === 'add-edge') {
+        cy.add({
+            group: 'edges',
+            data: {
+                id: entry.data.id,
+                source: entry.data.source,
+                target: entry.data.target
+            }
+        });
+    }
+    
+    if (graphNum === 1) historyIndex1++;
+    else historyIndex2++;
+    
+    updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+    const undoBtn2 = document.getElementById('undo-btn2');
+    const redoBtn2 = document.getElementById('redo-btn2');
+    
+    if (undoBtn) undoBtn.disabled = historyIndex1 < 0;
+    if (redoBtn) redoBtn.disabled = historyIndex1 >= history1.length - 1;
+    if (undoBtn2) undoBtn2.disabled = historyIndex2 < 0;
+    if (redoBtn2) redoBtn2.disabled = historyIndex2 >= history2.length - 1;
+}
+
+// export
+function exportGraphJSON(cy, filename) {
+    const data = {
+        nodes: [],
+        edges: []
+    };
+    
+    cy.nodes().forEach(node => {
+        data.nodes.push({
+            id: node.id(),
+            position: node.position()
+        });
+    });
+    
+    cy.edges().forEach(edge => {
+        data.edges.push({
+            source: edge.source().id(),
+            target: edge.target().id()
+        });
+    });
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportGraphsImage() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // get cytoscape canvases
+    const cy1Canvas = cy1.container().querySelector('canvas');
+    const cy2Canvas = cy2.container().querySelector('canvas');
+    
+    canvas.width = cy1Canvas.width + cy2Canvas.width + 40;
+    canvas.height = Math.max(cy1Canvas.height, cy2Canvas.height) + 100;
+    
+    // background
+    ctx.fillStyle = document.body.classList.contains('dark-theme') ? '#1A1A2E' : '#F5F5F0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // title
+    ctx.fillStyle = document.body.classList.contains('dark-theme') ? '#E4E4E7' : '#2C3E50';
+    ctx.font = '24px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Graph Homeomorphism Checker', canvas.width / 2, 40);
+    
+    // labels
+    ctx.font = '18px sans-serif';
+    ctx.fillStyle = '#457B9D';
+    ctx.fillText('Graph A', cy1Canvas.width / 2 + 20, 70);
+    ctx.fillStyle = '#E76F51';
+    ctx.fillText('Graph B', cy1Canvas.width + cy2Canvas.width / 2 + 40, 70);
+    
+    // graphs
+    ctx.drawImage(cy1Canvas, 20, 80);
+    ctx.drawImage(cy2Canvas, cy1Canvas.width + 40, 80);
+    
+    canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `graphs-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// theme
 
 function initializeTheme() {
     const savedTheme = localStorage.getItem('theme');
@@ -621,13 +801,8 @@ function updateThemeToggleUI(isDark) {
     const themeIcon = document.getElementById('theme-icon');
     const themeText = document.getElementById('theme-text');
     
-    if (isDark) {
-        themeIcon.textContent = '☀️';
-        themeText.textContent = 'Light';
-    } else {
-        themeIcon.textContent = '🌙';
-        themeText.textContent = 'Dark';
-    }
+    themeIcon.textContent = isDark ? '☀️' : '🌙';
+    themeText.textContent = isDark ? 'Light' : 'Dark';
 }
 
 function getNodeColorA() {
@@ -662,7 +837,7 @@ function updateCytoscapeTheme() {
     const nodeHover = getNodeHoverColor();
     const nodeBorderHover = getNodeBorderHoverColor();
     
-    // Update cy1 styles
+    // update styles
     cy1.style()
         .selector('node')
         .style({
@@ -683,7 +858,7 @@ function updateCytoscapeTheme() {
         })
         .update();
     
-    // Update cy2 styles
+    // cy2
     cy2.style()
         .selector('node')
         .style({
@@ -705,18 +880,15 @@ function updateCytoscapeTheme() {
         .update();
 }
 
-// ============================================
-// ABOUT MODAL MANAGEMENT
-// ============================================
-
+// modal
 function openAboutModal() {
     const modal = document.getElementById('about-modal');
     modal.classList.add('active');
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    document.body.style.overflow = 'hidden';
 }
 
 function closeAboutModal() {
     const modal = document.getElementById('about-modal');
     modal.classList.remove('active');
-    document.body.style.overflow = ''; // Restore scrolling
+    document.body.style.overflow = '';
 }
