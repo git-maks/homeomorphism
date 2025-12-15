@@ -8,18 +8,176 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Graph Homeomorphism Checker</h1>
+    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme">
+        <span id="theme-icon">🌙</span>
+        <span id="theme-text">Dark</span>
+    </button>
+    
+    <button id="about-btn" class="about-btn" aria-label="About">
+        <span>ℹ️</span>
+        <span>About</span>
+    </button>
+    
+    <div class="header">
+        <h1>Graph Homeomorphism Checker</h1>
+        <p class="tutorial">Two graphs are homeomorphic if one can be transformed into the other by subdividing edges (adding degree-2 nodes along edges).</p>
+    </div>
+    
     <div class="instructions">
-        <p>Left-click to add a node</p>
-        <p>Right-click on a node to remove it</p>
-        <p>Click and drag from one node to another to create an edge</p>
+        <div class="instruction-pill">🖱️ Left-click to add a node</div>
+        <div class="instruction-pill">🗑️ Right-click on a node to remove it</div>
+        <div class="instruction-pill">🔗 Click and drag between nodes to create an edge</div>
     </div>
-    <div class="graph-containers">
-        <div id="cy1" class="cytoscape-graph"></div>
-        <div id="cy2" class="cytoscape-graph"></div>
+    
+    <div class="graph-section">
+        <div class="graph-headers">
+            <h2 class="graph-label graph-a">Graph A</h2>
+            <h2 class="graph-label graph-b">Graph B</h2>
+        </div>
+        <div class="graph-containers">
+            <div id="cy1" class="cytoscape-graph"></div>
+            <div id="cy2" class="cytoscape-graph"></div>
+        </div>
     </div>
-    <button id="check-homeomorphism">Check Homeomorphism</button>
+    
+    <div class="control-panel">
+        <select class="example-dropdown" id="example-selector">
+            <option value="">Load Example Graph...</option>
+            <option value="triangle">Triangle vs Subdivided Triangle</option>
+            <option value="star">Star Graphs (4-Star)</option>
+            <option value="path">Path Graphs</option>
+            <option value="complete">Complete Graph K3</option>
+            <option value="non-homeo">Non-Homeomorphic (Tree vs Cycle)</option>
+        </select>
+        <button id="check-homeomorphism" class="btn" title="Check if the two graphs are homeomorphic">Check Homeomorphism</button>
+        <button id="check-isomorphism" class="btn" title="Check if the two graphs are isomorphic (same structure)">Check Isomorphism</button>
+    </div>
+    
     <div id="result"></div>
+    
+    <!-- About Modal -->
+    <div id="about-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" aria-label="Close modal">&times;</button>
+            <h2>About Graph Homeomorphism Checker</h2>
+            
+            <h3>Overview</h3>
+            <p>An interactive web-based tool for visualizing and checking graph homeomorphism and isomorphism. This educational application helps users understand topological and structural equivalences in graph theory through hands-on experimentation.</p>
+            
+            <div class="section-divider"></div>
+            
+            <h3>Algorithms Explained</h3>
+            
+            <h4>Homeomorphism Detection</h4>
+            <p>Two graphs are <strong>homeomorphic</strong> if one can be transformed into the other by subdividing edges (inserting degree-2 nodes along edges). This represents a topological equivalence.</p>
+            
+            <p><strong>Algorithm Steps:</strong></p>
+            <ul>
+                <li><strong>Step 1:</strong> Simplify both graphs by iteratively removing all degree-2 nodes</li>
+                <li><strong>Step 2:</strong> When removing a degree-2 node, connect its two neighbors directly</li>
+                <li><strong>Step 3:</strong> Check if the simplified graphs are isomorphic</li>
+                <li><strong>Step 4:</strong> If simplified graphs match, the original graphs are homeomorphic</li>
+            </ul>
+            
+            <p><strong>Complexity Analysis:</strong> O(nxb2 + m) for simplification process, where n is the number of nodes and m is the number of edges, plus the cost of isomorphism checking.</p>
+            
+            <h4>Isomorphism Detection</h4>
+            <p>Two graphs are <strong>isomorphic</strong> if there exists a one-to-one mapping between vertices that preserves adjacency. This represents a structural equivalence.</p>
+            
+            <p><strong>Algorithm Steps:</strong></p>
+            <ul>
+                <li><strong>Quick Rejection Tests:</strong> Compare node counts, edge counts, and degree sequences</li>
+                <li><strong>Degree Sequence:</strong> Sort nodes by their degree and verify both graphs have identical sequences</li>
+                <li><strong>Backtracking Search:</strong> Use recursive backtracking to find a valid vertex mapping</li>
+                <li><strong>Adjacency Verification:</strong> For each candidate mapping, verify all edges are preserved</li>
+            </ul>
+            
+            <p><strong>Complexity Analysis:</strong> O(n!) in worst case (NP-complete problem), but optimized with pruning techniques. Practically efficient for graphs up to ~30 nodes.</p>
+            
+            <div class="section-divider"></div>
+            
+            <h3>Technologies Used</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Technology</th>
+                        <th>Version</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>JavaScript</strong></td>
+                        <td>ES6+</td>
+                        <td>Core application logic and graph algorithms implementation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>HTML5</strong></td>
+                        <td>Latest</td>
+                        <td>Document structure and semantic markup</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CSS3</strong></td>
+                        <td>Latest</td>
+                        <td>Styling, animations, responsive layout, and theming</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cytoscape.js</strong></td>
+                        <td>3.23.0</td>
+                        <td>Graph visualization, rendering, and user interaction engine</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="section-divider"></div>
+            
+            <h3>Graph Theory Concepts</h3>
+            
+            <h4>Key Definitions</h4>
+            <ul>
+                <li><strong>Graph Homeomorphism:</strong> A topological equivalence relation. Two graphs have the same "shape" when degree-2 nodes (edge subdivisions) are ignored.</li>
+                <li><strong>Graph Isomorphism:</strong> A structural equivalence. Two graphs have identical connectivity patterns with a perfect node-to-node correspondence.</li>
+                <li><strong>Degree-2 Node:</strong> A node with exactly two connections, representing a subdivision point along an edge.</li>
+                <li><strong>Degree Sequence:</strong> A sorted list of all node degrees, used as a quick structural fingerprint.</li>
+            </ul>
+            
+            <h4>Relationship Between Concepts</h4>
+            <ul>
+                <li>All isomorphic graphs are homeomorphic (isomorphism → homeomorphism)</li>
+                <li>Homeomorphic graphs may have different numbers of nodes due to edge subdivisions</li>
+                <li>Isomorphic graphs must have exactly the same number of nodes and edges</li>
+                <li>Homeomorphism is a weaker equivalence relation than isomorphism</li>
+            </ul>
+            
+            <div class="section-divider"></div>
+            
+            <h3>Usage Instructions</h3>
+            
+            <h4>Creating Graphs</h4>
+            <ul>
+                <li><strong>Add Node:</strong> Left-click on empty space in either graph panel</li>
+                <li><strong>Remove Node:</strong> Right-click on any node to delete it</li>
+                <li><strong>Create Edge:</strong> Click and drag from one node to another</li>
+            </ul>
+            
+            <h4>Checking Equivalence</h4>
+            <ul>
+                <li><strong>Homeomorphism:</strong> Checks if graphs have the same topological structure (allows subdivisions)</li>
+                <li><strong>Isomorphism:</strong> Checks if graphs have identical structure (exact match)</li>
+            </ul>
+            
+            <h4>Example Graphs</h4>
+            <p>Use the dropdown menu to load pre-built graph pairs that demonstrate different homeomorphism and isomorphism scenarios.</p>
+            
+            <div class="section-divider"></div>
+            
+            <h3>Educational Value</h3>
+            <p>This tool is designed for students and enthusiasts learning graph theory. It provides immediate visual feedback and helps develop intuition about topological vs. structural graph properties.</p>
+            
+            <p><strong>Note:</strong> While the algorithms are correct for educational purposes, production-grade graph analysis systems would use more sophisticated approaches for large-scale graphs (e.g., Weisfeiler-Lehman algorithm, canonical labeling).</p>
+        </div>
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
