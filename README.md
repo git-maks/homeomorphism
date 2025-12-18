@@ -20,20 +20,6 @@ Two graphs are homeomorphic if one can be transformed into the other by adding o
 
 Isomorphism is stricter - graphs must have identical structure with same number of nodes and edges.
 
-## Quick Start
-
-```bash
-git clone https://github.com/yourusername/homeomorphism.git
-cd homeomorphism
-```
-
-Open `index.html` in your browser. That's it - no build process needed.
-
-Or run a local server:
-```bash
-python -m http.server 8000
-```
-
 ## Tech Stack
 
 Built with vanilla JavaScript and Cytoscape.js for graph rendering.
