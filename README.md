@@ -4,6 +4,8 @@ Interactive tool for checking graph homeomorphism and isomorphism. Draw graphs a
 
 🔗 **[Live Demo](https://yourusername.github.io/homeomorphism/)**
 
+![Screenshot](assets/screenshot.png)
+
 ## Features
 
 - **Draw graphs**: click to add nodes, drag between nodes for edges, right-click to delete
